@@ -271,6 +271,16 @@ const fzLocalDatapoints = {
     const res0 = tuya.fz.datapoints.convert(model, msg, publish, options, meta) || {};
     const res = {...res0};
 
+    // DP 149 is emitted by the panel's radar wake/idle handlers. Preserve the
+    // existing backlight_switch property for backwards-compatible control,
+    // while also publishing the incoming state as read-only occupancy.
+    //
+    // ON/1  = radar wake-up / presence
+    // OFF/0 = radar idle / no presence
+    if (Object.prototype.hasOwnProperty.call(res, 'backlight_switch')) {
+      res.occupancy = res.backlight_switch === 'ON';
+    }
+
     // Convert scene actions to standard action format
     for (let i = 1; i <= 8; i++) {
       const k = `action_scene_${i}`;
@@ -472,6 +482,10 @@ const definition = {
     e.enum('curtain_1_state', ea.STATE_SET, ['OPEN','STOPPED','CLOSED']).withDescription('Curtain 1 state control'),
     e.numeric('curtain_2_position', ea.STATE_SET).withValueMin(0).withValueMax(100).withDescription('Curtain 2 position %'),
     e.enum('curtain_2_state', ea.STATE_SET, ['OPEN','STOPPED','CLOSED']).withDescription('Curtain 2 state control'),
+
+    // Radar presence (read only). DP 149 is shared with the panel backlight
+    // state, so this represents radar-active/display-awake until its idle timer.
+    e.occupancy().withDescription('Radar activity derived from DP 149; clears when the panel enters radar idle'),
 
     // Panel controls
     exposes.binary('backlight_switch', ea.STATE_SET, 'ON', 'OFF').withDescription('Panel backlight'),
